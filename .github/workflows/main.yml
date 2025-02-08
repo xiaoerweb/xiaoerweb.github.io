@@ -1,44 +1,55 @@
-name: Deploy hexo blog
+name: Hexo Auto Deploy
 
 on:
   push:
     branches:
-    - main
+      - main  # 推荐使用 main 作为默认分支
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20.x]
+    permissions:
+      contents: write  # 确保有写入权限
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 检出源码（含子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # 自动处理主题子模块
+          path: blog
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: 设置 Node.js 18.x
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '18'
+          cache: 'npm'  # 自动缓存 npm 依赖
 
-      - name: Configuration environment
-        env:
-          HEXO_DEPLOY_PRI: ${{secrets.HEXO_DEPLOY_PRI}}
+      - name: 安装依赖
         run: |
-          sudo timedatectl set-timezone "Asia/Shanghai"
-          mkdir -p ~/.ssh/
-          echo "$HEXO_DEPLOY_PRI" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          git config --global user.name "secsilm"
-          git config --global user.email "secsilm@outlook.com"
-      - name: Install dependencies
-        run: |
-          npm i -g hexo-cli
-          npm ci
-          cd themes/tranquilpeak/
-          npm ci
-          npm run prod
-      - name: Deploy hexo
+          npm install -g hexo-cli
+          npm ci --prefer-offline  # 推荐使用 ci 替代 install
+        working-directory: ./blog
+
+      - name: 清理并生成静态文件
         run: |
           hexo clean
-          hexo d -g
+          hexo generate
+        working-directory: ./blog
+
+      - name: 验证生成结果
+        run: |
+          if [ ! -d "public" ]; then
+            echo "错误：生成失败，public 目录不存在"
+            exit 1
+          fi
+        working-directory: ./blog
+
+      - name: 部署到 GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}  # 使用默认 token 更安全
+          publish_dir: ./blog/public
+          external_repository: xiaoerweb/xiaoerweb.github.io  # 修改为你的仓库
+          publish_branch: main  # GitHub Pages 新默认分支
+          keep_files: false     # 清理旧文件
+          force_orphan: true    # 保持提交历史清洁
