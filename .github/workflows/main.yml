@@ -3,7 +3,7 @@ name: Deploy Hexo to GitHub Pages
 on:
   push:
     branches:
-      - main  # 确保与你的默认分支名称一致
+      - main
 
 jobs:
   deploy:
@@ -11,40 +11,34 @@ jobs:
 
     steps:
       - name: Checkout blog source
-        uses: actions/checkout@v4
-        with:
-          path: blog
+        uses: actions/checkout@v4  # 默认检出到根目录
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "20"  # 推荐使用 Node.js 20（LTS版本）
+          node-version: "20"
 
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
-          path: blog/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          path: node_modules  # 缓存根目录的 node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
 
       - name: Install dependencies
-        run: npm install
-        working-directory: ./blog
+        run: npm install  # 在根目录运行
 
       - name: Install Hexo CLI
-        run: npm install -g hexo-cli  # 全局安装无需指定工作目录
+        run: npm install -g hexo-cli
 
       - name: Generate static pages
         run: |
           hexo clean
           hexo generate
-        working-directory: ./blog
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./blog/public
-          external_repository: xiaoerweb/xiaoerweb.github.io  # 替换为你的 Pages 仓库
-          publish_branch: main  # 与你的 Pages 分支一致（通常为 gh-pages 或 main）
+          publish_dir: ./public  # Hexo 生成的 public 目录在根目录下
+          external_repository: xiaoerweb/xiaoerweb.github.io
+          publish_branch: main
