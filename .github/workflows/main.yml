@@ -1,49 +1,55 @@
-name: Deploy Hexo to GitHub Pages
+name: Hexo Auto Deploy
 
 on:
   push:
-    branches:
-      - main # 或你使用的默认分支名称
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout blog source
-        uses: actions/checkout@v2
+      # 步骤1：检出代码到 blog 子目录（关键配置）
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
-          path: blog
+          submodules: recursive
+          path: blog  # 指定检出到 blog 目录
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v1
+      # 步骤2：验证目录结构（调试用）
+      - name: Verify structure
+        run: |
+          echo "当前工作目录: $PWD"
+          ls -lha blog/
+          [ -f blog/package.json ] && echo "✅ package.json 存在" || echo "❌ package.json 缺失"
+
+      # 步骤3：设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: "16" # 设置 Node.js 版本
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: blog/package-lock.json  # 指向子目录
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
+      # 步骤4：安装依赖（显式指定工作目录）
       - name: Install dependencies
-        run: npm install
-        working-directory: ./blog
+        run: |
+          cd blog
+          npm install -g hexo-cli
+          npm ci --prefer-offline --audit=false
 
-      - name: Install Hexo CLI
-        run: npm install -g hexo-cli
-        working-directory: ./blog
+      # 步骤5：生成静态文件
+      - name: Generate site
+        run: |
+          cd blog
+          hexo clean && hexo generate
 
-      - name: Generate static pages
-        run: hexo generate
-        working-directory: ./blog
-
-      - name: Deploy to GitHub Pages
+      # 步骤6：部署到 GitHub Pages
+      - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
-          personal_token: ${{ secrets.PERSONAL_TOKEN }}
-          publish_dir: ./blog/public
-          external_repository: xiaoerweb/xiaoerweb.github.io # 更改为你的 GitHub Pages 仓库, username 是你的用户名
-          publish_branch: main # GitHub Pages 分支
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: blog/public  # 注意路径格式
+          publish_branch: main
