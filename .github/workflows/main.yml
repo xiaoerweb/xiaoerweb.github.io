@@ -3,53 +3,44 @@ name: Hexo Auto Deploy
 on:
   push:
     branches:
-      - main  # 推荐使用 main 作为默认分支
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # 确保有写入权限
+      contents: write
 
     steps:
       - name: 检出源码（含子模块）
         uses: actions/checkout@v4
         with:
-          submodules: recursive  # 自动处理主题子模块
-          path: blog
+          submodules: recursive
+          path: blog  # 代码检出到 blog 子目录
 
-      - name: 设置 Node.js 18.x
+      - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'  # 自动缓存 npm 依赖
+          cache: 'npm'
+          cache-dependency-path: blog/package-lock.json  # 关键修复：指定锁文件路径
 
       - name: 安装依赖
         run: |
           npm install -g hexo-cli
-          npm ci --prefer-offline  # 推荐使用 ci 替代 install
-        working-directory: ./blog
+          npm ci --prefer-offline
+        working-directory: ./blog  # 确保在子目录操作
 
-      - name: 清理并生成静态文件
+      - name: 生成静态文件
         run: |
           hexo clean
           hexo generate
         working-directory: ./blog
 
-      - name: 验证生成结果
-        run: |
-          if [ ! -d "public" ]; then
-            echo "错误：生成失败，public 目录不存在"
-            exit 1
-          fi
-        working-directory: ./blog
-
       - name: 部署到 GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}  # 使用默认 token 更安全
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./blog/public
-          external_repository: xiaoerweb/xiaoerweb.github.io  # 修改为你的仓库
-          publish_branch: main  # GitHub Pages 新默认分支
-          keep_files: false     # 清理旧文件
-          force_orphan: true    # 保持提交历史清洁
+          external_repository: xiaoerweb/xiaoerweb.github.io
+          publish_branch: main
