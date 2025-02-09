@@ -1,55 +1,48 @@
-name: Hexo Auto Deploy
+# 任务名称：任意
+name: Deploy Blog Pages
 
+# 触发条件
 on:
+  # push，也就是推送到仓库时才执行任务
   push:
-    branches: [ main ]
+    # 分支，这里选择 main，也就是只有推送到 main 分支时才执行任务【可选】
+    branches:
+      - main
+    # 忽略路径，也就是当只有这些路径发生变更时不会执行任务【可选】
+    paths-ignore:
+      - ".github/**"
+      - "scaffolds/**"
+      - "source/_drafts/**"
 
+# 任务
 jobs:
-  deploy:
+  # 任务名称，任意
+  build-and-deploy:
+    # 服务器环境：最新版 Ubuntu
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-      # 步骤1：检出代码到 blog 子目录（关键配置）
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          path: blog  # 指定检出到 blog 目录
+      # 拉取
+      - name: 📦 Checkout
+        uses: actions/checkout@v2
 
-      # 步骤2：验证目录结构（调试用）
-      - name: Verify structure
+      # 生成静态文件
+      - name: 🔧 Install and Build
         run: |
-          echo "当前工作目录: $PWD"
-          ls -lha blog/
-          [ -f blog/package.json ] && echo "✅ package.json 存在" || echo "❌ package.json 缺失"
+          npm ci
+          npm run build          
+        # 如果采用 yarn 进行包管理，则使用下面的代码
+        #  yarn
+        #  yarn build
 
-      # 步骤3：设置 Node.js 环境
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      # 部署到 GitHub Pages
+      - name: 🚀 Deploy
+        uses: JamesIves/github-pages-deploy-action@releases/v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: blog/package-lock.json  # 指向子目录
-
-      # 步骤4：安装依赖（显式指定工作目录）
-      - name: Install dependencies
-        run: |
-          cd blog
-          npm install -g hexo-cli
-          npm ci --prefer-offline --audit=false
-
-      # 步骤5：生成静态文件
-      - name: Generate site
-        run: |
-          cd blog
-          hexo clean && hexo generate
-
-      # 步骤6：部署到 GitHub Pages
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: blog/public  # 注意路径格式
-          publish_branch: main
+          # GitHub 的 Personal access token
+          token: ${{secrets.PAT}}
+          # 更换为自己的 <user>/<user>.github.io
+          repository-name: xiaoerweb/xiaoerweb.github.io
+          # 要部署到的分支
+          branch: main
+          # 上一步生成的静态文件的地址
+          folder: public
